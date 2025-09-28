@@ -88,7 +88,7 @@ class TilemapCanvas(QWidget):
             
             self.camera_x = new_screen_x - mouse_pos.x()
             self.camera_y = new_screen_y - mouse_pos.y()
-        
+
         self.update()
         self.parent.update_status()
     

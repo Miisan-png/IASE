@@ -28,15 +28,18 @@ class Player:
         self.jump_buffer = 0.1
         self.jump_buffer_timer = 0
         
-        self.ground_y = 140
-        
         self.surface = pygame.Surface((self.width, self.height))
         self.surface.fill((255, 100, 100))
         
-    def update(self, keys, dt):
+    def get_rect(self):
+        return pygame.Rect(self.x, self.y, self.width, self.height)
+        
+    def update(self, keys, dt, collision_system=None, tilemap=None):
         self.handle_input(keys, dt)
         self.apply_physics(dt)
-        self.check_ground_collision()
+        
+        if collision_system and tilemap:
+            collision_system.handle_entity_collision(self, tilemap, dt)
         
     def handle_input(self, keys, dt):
         moving = False
@@ -97,19 +100,7 @@ class Player:
         else:
             self.coyote_timer = self.coyote_time
             
-        self.x += self.vel_x * dt
-        self.y += self.vel_y * dt
-        
-    def check_ground_collision(self):
-        if self.y + self.height >= self.ground_y:
-            self.y = self.ground_y - self.height
-            if self.vel_y > 0:
-                self.vel_y = 0
-                self.on_ground = True
-                self.is_jumping = False
-                self.jump_time = 0
-        else:
-            self.on_ground = False
-            
-    def render(self, screen):
-        screen.blit(self.surface, (int(self.x), int(self.y)))
+    def render(self, screen, camera_x=0, camera_y=0):
+        screen_x = self.x - camera_x
+        screen_y = self.y - camera_y
+        screen.blit(self.surface, (int(screen_x), int(screen_y)))
