@@ -1,7 +1,7 @@
 import pygame
 from engine.window_manager import WindowManager
 from engine.splash_screen import SplashScreen
-from core.player import Player
+from Core.player import Player
 
 class Game:
     def __init__(self):
