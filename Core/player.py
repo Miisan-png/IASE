@@ -11,20 +11,21 @@ class Player:
         self.vel_x = 0
         self.vel_y = 0
         
-        self.max_speed = 80
-        self.acceleration = 400
-        self.friction = 800
-        self.gravity = 400
-        self.max_fall_speed = 200
+        self.max_speed = 120
+        self.acceleration = 600
+        self.friction = 1200
+        self.air_friction = 300
+        self.gravity = 800
+        self.max_fall_speed = 300
         
-        self.jump_force = 150
-        self.max_jump_time = 0.25
+        self.jump_force = 220
+        self.max_jump_time = 0.2
         self.jump_time = 0
         self.is_jumping = False
         self.on_ground = False
-        self.coyote_time = 0.1
+        self.coyote_time = 0.08
         self.coyote_timer = 0
-        self.jump_buffer = 0.15
+        self.jump_buffer = 0.1
         self.jump_buffer_timer = 0
         
         self.ground_y = 140
@@ -38,31 +39,37 @@ class Player:
         self.check_ground_collision()
         
     def handle_input(self, keys, dt):
-        if keys[pygame.K_LEFT]:
+        moving = False
+        
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
             self.vel_x -= self.acceleration * dt
-        elif keys[pygame.K_RIGHT]:
+            moving = True
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.vel_x += self.acceleration * dt
-        else:
-            if abs(self.vel_x) < 10:
+            moving = True
+            
+        if not moving:
+            current_friction = self.friction if self.on_ground else self.air_friction
+            if abs(self.vel_x) < 20:
                 self.vel_x = 0
             elif self.vel_x > 0:
-                self.vel_x = max(0, self.vel_x - self.friction * dt)
+                self.vel_x = max(0, self.vel_x - current_friction * dt)
             elif self.vel_x < 0:
-                self.vel_x = min(0, self.vel_x + self.friction * dt)
+                self.vel_x = min(0, self.vel_x + current_friction * dt)
         
         self.vel_x = max(-self.max_speed, min(self.max_speed, self.vel_x))
         
-        if keys[pygame.K_x]:
+        if keys[pygame.K_SPACE] or keys[pygame.K_x] or keys[pygame.K_UP] or keys[pygame.K_w]:
             if not self.is_jumping and (self.on_ground or self.coyote_timer > 0):
                 self.start_jump()
             elif self.is_jumping and self.jump_time < self.max_jump_time:
                 self.continue_jump(dt)
-            else:
-                self.jump_buffer_timer = self.jump_buffer
         else:
-            self.is_jumping = False
-            self.jump_time = self.max_jump_time
-            
+            if self.is_jumping:
+                self.is_jumping = False
+                if self.vel_y < -self.jump_force * 0.3:
+                    self.vel_y = -self.jump_force * 0.3
+                    
         if self.jump_buffer_timer > 0:
             self.jump_buffer_timer -= dt
             if (self.on_ground or self.coyote_timer > 0) and not self.is_jumping:
@@ -79,7 +86,8 @@ class Player:
     def continue_jump(self, dt):
         self.jump_time += dt
         jump_strength = 1.0 - (self.jump_time / self.max_jump_time)
-        self.vel_y -= self.jump_force * 0.5 * jump_strength * dt
+        jump_strength = jump_strength * jump_strength
+        self.vel_y -= self.jump_force * 0.8 * jump_strength * dt
         
     def apply_physics(self, dt):
         if not self.on_ground:
