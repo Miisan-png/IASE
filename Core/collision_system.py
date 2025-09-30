@@ -9,7 +9,6 @@ class CollisionSystem:
         self.debug_enabled = enabled
         
     def check_horizontal_collision(self, entity, tilemap, dt):
-        old_x = entity.x
         entity.x += entity.vel_x * dt
         
         entity_rect = entity.get_rect()
@@ -25,13 +24,11 @@ class CollisionSystem:
                 break
                 
     def check_vertical_collision(self, entity, tilemap, dt):
-        old_y = entity.y
         entity.y += entity.vel_y * dt
         
         entity_rect = entity.get_rect()
         collision_tiles = tilemap.get_collision_tiles_in_rect(entity_rect)
         
-        was_on_ground = entity.on_ground
         entity.on_ground = False
         
         for tile_rect in collision_tiles:
@@ -47,6 +44,16 @@ class CollisionSystem:
                     entity.vel_y = 0
                     entity.is_jumping = False
                 break
+        
+        if not entity.on_ground and entity.vel_y == 0:
+            check_rect = pygame.Rect(entity.x, entity.y + 1, entity.width, entity.height)
+            ground_check = tilemap.get_collision_tiles_in_rect(check_rect)
+            for tile_rect in ground_check:
+                check_bottom = pygame.Rect(entity.x, entity.y + entity.height, entity.width, 1)
+                if check_bottom.colliderect(tile_rect):
+                    entity.on_ground = True
+                    entity.vel_y = 0
+                    break
                 
         if self.debug_enabled:
             self.collision_rects = collision_tiles
@@ -88,3 +95,7 @@ class CollisionSystem:
         pygame.draw.line(screen, (0, 0, 255), 
                         (entity.x - camera_x + entity.width//2, entity.y - camera_y + entity.height//2),
                         (vel_end_x + entity.width//2, vel_end_y + entity.height//2), 3)
+
+
+
+

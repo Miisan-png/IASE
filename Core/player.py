@@ -35,11 +35,18 @@ class Player:
         return pygame.Rect(self.x, self.y, self.width, self.height)
         
     def update(self, keys, dt, collision_system=None, tilemap=None):
+        old_y = self.y
+        old_vel_y = self.vel_y
+        old_on_ground = self.on_ground
+        
         self.handle_input(keys, dt)
         self.apply_physics(dt)
         
         if collision_system and tilemap:
             collision_system.handle_entity_collision(self, tilemap, dt)
+        
+        if abs(old_y - self.y) > 0.01 or old_on_ground != self.on_ground:
+            print(f"Y: {old_y:.2f} -> {self.y:.2f} | VelY: {old_vel_y:.2f} -> {self.vel_y:.2f} | Ground: {old_on_ground} -> {self.on_ground}")
         
     def handle_input(self, keys, dt):
         moving = False
@@ -96,7 +103,8 @@ class Player:
         if not self.on_ground:
             self.vel_y += self.gravity * dt
             self.vel_y = min(self.vel_y, self.max_fall_speed)
-            self.coyote_timer -= dt
+            if self.coyote_timer > 0:
+                self.coyote_timer -= dt
         else:
             self.coyote_timer = self.coyote_time
             
@@ -104,3 +112,7 @@ class Player:
         screen_x = self.x - camera_x
         screen_y = self.y - camera_y
         screen.blit(self.surface, (int(screen_x), int(screen_y)))
+
+
+
+
