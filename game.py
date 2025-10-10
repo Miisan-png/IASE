@@ -2,6 +2,9 @@ import pygame
 import os
 from engine.window_manager import WindowManager
 from engine.splash_screen import SplashScreen
+# === STATE MANAGER INTEGRATION (Added by teammate for pause/death menus) ===
+from engine.state_manager import StateManager, GameState
+# ========================================================================
 from Core.player import Player
 from Core.tilemap import Tilemap
 from Core.collision_system import CollisionSystem
@@ -11,6 +14,9 @@ class Game:
     def __init__(self):
         self.window = WindowManager()
         self.splash = SplashScreen(self.window)
+        # === STATE MANAGER INITIALIZATION (Added by teammate) ===
+        self.state_manager = StateManager(self.window)
+        # ========================================================
         self.player = Player(32, 32)
         self.tilemap = Tilemap()
         self.collision_system = CollisionSystem()
@@ -50,16 +56,89 @@ class Game:
         self.camera_x = max(0, min(self.camera_x, world_width - self.window.base_width))
         self.camera_y = max(0, min(self.camera_y, world_height - self.window.base_height))
         
+    # === STATE MANAGER: Menu action handler (Added by teammate) ===
+    def handle_menu_action(self, menu_result):
+        """Handle actions from pause/death menus"""
+        action = menu_result.get("action")
+        
+        if action == "resume":
+            # Game resumes automatically via state change
+            pass
+        elif action == "respawn":
+            # Reset player to respawn position
+            respawn_pos = menu_result.get("position", (32, 32))
+            self.player.x, self.player.y = respawn_pos
+            self.player.vel_x = 0
+            self.player.vel_y = 0
+        elif action == "restart_level":
+            # Reset player to starting position
+            self.player.x, self.player.y = 32, 32
+            self.player.vel_x = 0
+            self.player.vel_y = 0
+            # Could reload level here if needed
+        elif action == "main_menu":
+            # TODO: Implement main menu transition
+            # For now, just restart the level
+            self.player.x, self.player.y = 32, 32
+            self.player.vel_x = 0
+            self.player.vel_y = 0
+            self.state_manager.change_state(GameState.PLAYING)
+        elif action == "quit":
+            # Quit the game
+            self.window.running = False
+    # =============================================================
+        
     def update(self):
+        # === STATE MANAGER UPDATE (Added by teammate) ===
+        # Only update state manager if it exists and pygame is initialized
+        if hasattr(self, 'state_manager') and self.state_manager:
+            self.state_manager.update(self.window.dt)
+            
+            # Handle pause menu input if game is paused
+            if self.state_manager.is_game_paused():
+                keys = pygame.key.get_pressed()
+                menu_result = self.state_manager.handle_pause_input(keys, self.window.dt)
+                if menu_result:
+                    self.handle_menu_action(menu_result)
+                return
+            
+            # Handle death menu input if player is dead
+            if self.state_manager.is_player_dead():
+                keys = pygame.key.get_pressed()
+                menu_result = self.state_manager.handle_death_input(keys, self.window.dt)
+                if menu_result:
+                    self.handle_menu_action(menu_result)
+                return
+        # ==============================================
+        
         if not self.game_started:
             splash_done = self.splash.update(self.window.dt)
             if splash_done:
                 self.game_started = True
+                # === STATE MANAGER: Set to playing state ===
+                if hasattr(self, 'state_manager') and self.state_manager:
+                    self.state_manager.change_state(GameState.PLAYING)
+                # ==========================================
         else:
             keys = pygame.key.get_pressed()
+            
+            # === STATE MANAGER: Check for pause input ===
+            if hasattr(self, 'state_manager') and self.state_manager:
+                if self.state_manager.check_for_pause(keys, self.window.dt):
+                    return  # Game was paused, skip rest of update
+            # ============================================
+            
             self.handle_debug_input(keys)
             
             self.player.update(keys, self.window.dt, self.collision_system, self.tilemap)
+            
+            # === STATE MANAGER: Example death trigger (you can customize this) ===
+            # Check if player fell off the world or other death conditions
+            if hasattr(self, 'state_manager') and self.state_manager and self.player.y > 1000:  # Fell off bottom of world
+                self.state_manager.trigger_death("Fell off the world!", (32, 32))
+                return
+            # ====================================================================
+            
             self.update_camera()
             
             if self.debug_system.enabled:
@@ -71,6 +150,10 @@ class Game:
                 self.debug_system.add_info("On Ground", self.player.on_ground)
                 self.debug_system.add_info("Camera X", f"{self.camera_x:.1f}")
                 self.debug_system.add_info("Camera Y", f"{self.camera_y:.1f}")
+                # === STATE MANAGER: Add state info to debug ===
+                if hasattr(self, 'state_manager') and self.state_manager:
+                    self.debug_system.add_info("Game State", self.state_manager.get_current_state().value)
+                # ==============================================
         
     def render(self):
         if not self.game_started:
@@ -88,6 +171,11 @@ class Game:
                 
             self.debug_system.render_info(self.window.virtual_screen)
             self.debug_system.render_fps(self.window.virtual_screen, self.window.clock)
+            
+            # === STATE MANAGER: Render pause/death menus (Added by teammate) ===
+            if hasattr(self, 'state_manager') and self.state_manager:
+                self.state_manager.render(self.window.virtual_screen)
+            # ===================================================================
         
     def run(self):
         while self.window.running:
